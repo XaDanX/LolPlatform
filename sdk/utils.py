@@ -1,5 +1,36 @@
 from dataclasses import dataclass
+from functools import lru_cache
+import functools
 
+from utils.logger import Logger
+from timeit import default_timer as timer
+
+
+def benchmark(func):
+    def inner(*args, **kwargs):
+        start = timer()
+        x = func(*args, **kwargs)
+        elapsed_time = timer() - start
+        Logger.log(f"{func} took: {elapsed_time}ms")
+        return x
+
+    return inner
+
+
+
+def ignore_unhashable(func):
+    uncached = func.__wrapped__
+    attributes = functools.WRAPPER_ASSIGNMENTS + ('cache_info', 'cache_clear')
+    @functools.wraps(func, assigned=attributes)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except TypeError as error:
+            if 'unhashable type' in str(error):
+                return uncached(*args, **kwargs)
+            raise
+    wrapper.__uncached__ = uncached
+    return wrapper
 
 @dataclass
 class Vec3:
@@ -8,12 +39,15 @@ class Vec3:
     z: float
 
 
+
 @dataclass
 class Vec2:
     x: float
     y: float
 
 
+@ignore_unhashable
+@lru_cache(maxsize=400)
 def w2s(pos: Vec3, matrix):
     width = 1920
     height = 1080
@@ -35,19 +69,17 @@ def w2s(pos: Vec3, matrix):
 
     return Vec2(0, 0)
 
-    """
-    z = pos.x * matrix[2] + pos.y * matrix[6] + pos.z * matrix[10] + matrix[14]
-    if z < 0.1:
-        return None
 
-    x = pos.x * matrix[0] + pos.y * matrix[4] + pos.z * matrix[8] + matrix[12]
-    y = pos.x * matrix[1] + pos.y * matrix[5] + pos.z * matrix[9] + matrix[13]
+def multiple_square_matrix(a, b, size: int):
+    if len(a) != size * size or len(b) != size * size:
+        raise Exception("input error")
 
-    xx = x / z
-    yy = y / z
+    result = []
+    for i in range(size):
+        for j in range(size):
+            c = 0
+            for k in range(size):
+                c += a[(i * size) + k] * b[(k * size) + j]
+            result.append(c)
 
-    _x = (1920 / 2 * xx) + (xx + 1920 / 2)  # capture screen width/height
-    _y = -(1090 / 2 * yy) + (yy + 1080 / 2)
-
-    return Vec2(_x, _y)
-    """
+    return result

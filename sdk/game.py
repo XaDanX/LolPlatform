@@ -1,10 +1,13 @@
 import dataclasses
 import struct
-
+import time
 from memory.memory import Memory
 from sdk import offsets
 import sdk.object as obj
 import enum
+
+from sdk.utils import benchmark, multiple_square_matrix
+from utils.logger import Logger
 
 SMITE_RANGE = 625
 
@@ -12,6 +15,7 @@ SMITE_RANGE = 625
 class SummonerSpell(enum.Enum):
     SMITE = ["SummonerSmite", "S5_SummonerSmite"]
     FLASH = "SummonerFlash"
+
 
 @dataclasses.dataclass
 class Render:
@@ -22,8 +26,36 @@ class Render:
     view_proj_matrix: list
 
 
+class FastRender:
+    def __init__(self):
+        self.last_render: Render = Render(0, 0, (), (), [])
+
+    def calculate_matrices_thread(self):
+        while True:
+            try:
+                render_ptr = Memory.process.read_int(Memory.process.base_address + offsets.renderer)
+
+                width = Memory.process.read_int(render_ptr + offsets.renderer_width)
+                height = Memory.process.read_int(render_ptr + offsets.renderer_height)
+                view_matrix = Memory.process.read_bytes(render_ptr + offsets.view_matrix, 64)
+                view_matrix_unp = struct.unpack("16f", view_matrix)
+                proj_view_matrix = Memory.process.read_bytes(render_ptr + offsets.proj_matrix, 64)
+                proj_view_matrix_unp = struct.unpack("16f", proj_view_matrix)
+
+                view_proj_matrix = multiple_square_matrix(view_matrix_unp, proj_view_matrix_unp, 4)
+
+                self.last_render = Render(width, height, view_matrix_unp, proj_view_matrix_unp, view_proj_matrix)
+                time.sleep(0.0001)
+            except Exception as e:
+                Logger.error(e)
+                continue
+
+    def get_render(self):
+        return self.last_render
+
 
 class Game:
+    fast_render = FastRender()
 
     @classmethod
     async def time(cls):
@@ -41,21 +73,7 @@ class Game:
         else:
             return None
 
-    @classmethod
-    def _multiple_square_matrix(cls, a, b, size: int):
-        if len(a) != size * size or len(b) != size * size:
-            raise Exception("input error")
-
-        result = []
-        for i in range(size):
-            for j in range(size):
-                c = 0
-                for k in range(size):
-                    c += a[(i * size) + k] * b[(k * size) + j]
-                result.append(c)
-
-        return result
-
+    """
     @classmethod
     async def render(cls):
         render_ptr = await Memory().read(Memory.process.base_address + offsets.renderer, "int")
@@ -67,6 +85,10 @@ class Game:
         proj_view_matrix = await Memory().read_bytes(render_ptr + offsets.proj_matrix, 64)
         proj_view_matrix_unp = struct.unpack("16f", proj_view_matrix)
 
-        view_proj_matrix = cls._multiple_square_matrix(view_matrix_unp, proj_view_matrix_unp, 4)
+        view_proj_matrix = multiple_square_matrix(view_matrix_unp, proj_view_matrix_unp, 4)
 
         return Render(width, height, view_matrix_unp, proj_view_matrix_unp, view_proj_matrix)
+    """
+    @classmethod
+    def render(cls):
+        return Game.fast_render.get_render()

@@ -1,16 +1,16 @@
-import time
+from time import sleep, monotonic
 
-import imgui
+from ctypes import windll
 
-import sdk.game
-from overlay.overlay import Overlay
-import requests
-from pymem.exception import MemoryReadError
+import arrow
+from imgui import new_frame
+
+from threading import Thread
 
 from utils.logger import Logger
 from managers.scripts_manager import ScriptManager
 
-import asyncio
+from asyncio import get_event_loop
 
 import pymem
 import sdk.offsets as offsets
@@ -27,55 +27,60 @@ async def main():
             local_player = await Memory().read(Memory.process.base_address + offsets.local_player, "int")
             Sdk.local_player = LocalPlayer(local_player)
         except pymem.exception.MemoryReadError:
-            time.sleep(1)
+            sleep(1)
 
         try:
             Sdk.object_manager = ObjectManager()
             await Sdk.object_manager.update()
         except pymem.exception.MemoryReadError:
-            time.sleep(1)
-
-        Sdk.champion_stats = ChampionStats()
+            sleep(1)
 
         if Sdk.local_player and len(Sdk.object_manager.champions) > 0:
+            Sdk.champion_stats = ChampionStats()
             break
 
-    """
-        Loading scripts
-    """
     Sdk.Renderer.renderer = Overlay("League of Legends (TM) Client")
 
     for x in range(1, 36):
         font = Sdk.Renderer.renderer.craft_font(x)
         Sdk.Fonts.ruda[x] = font
 
+    fast_render_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
+    fast_render_thread.start()
+
     script_manager = ScriptManager()
-    #script_manager.load("script.autosmite")
-    script_manager.load("script.test")
+
     script_manager.load("script.avarness")
-    #cript_manager.load("script.drawer")
     script_manager.load("script.orbwalker")
+
     await script_manager.initialize_scripts()
 
     await Sdk.Renderer.renderer.update()
 
     while True:
-        e = await Sdk.object_manager.select_lowest_target()
         for x in range(300):
+            start = arrow.utcnow()
             try:
-                imgui.new_frame()
+                new_frame()
             except:
                 pass
-            await script_manager.update_scripts()  # Update all scripts
 
-            # TODO: Overlay, drawing, timing
+            #  Execute scripts
+            await script_manager.update_scripts()
 
+            #  Render frame
             await Sdk.Renderer.renderer.update()
+
+            Sdk.BenchmarkData.total_time = (arrow.utcnow() - start).total_seconds() * 1000
+
+        #  Update Objects
         await Sdk.object_manager.update()
 
 
 if __name__ == "__main__":
     Logger().init()
+    windll.kernel32.SetConsoleTitleA("Some private scripting platform.")
+    Logger.log("You are using a private scripting platform, please don't share it with anyone and have fun.")
     Logger.log("Waiting for game.")
     while True:
         try:
@@ -83,10 +88,12 @@ if __name__ == "__main__":
             Memory.process = handle
             break
         except pymem.exception.ProcessNotFound:
-            time.sleep(1)
+            sleep(1)
 
     Logger.log("Game found!")
     try:
-        asyncio.get_event_loop().run_until_complete(main())
+        get_event_loop().run_until_complete(main())
     except KeyboardInterrupt:
+        Sdk.Renderer.renderer.close()
         Logger.log("Closing.")
+        quit(1)

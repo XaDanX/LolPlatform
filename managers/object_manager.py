@@ -9,6 +9,8 @@ import sdk.offsets as offsets
 from sdk.stats import ChampionStats
 import sdk.sdk as sdk
 
+import arrow
+
 Node = recordclass('Node', 'address, next')
 
 
@@ -38,6 +40,10 @@ class ObjectManager:
         return list(self.champions.values())
 
     async def update(self):
+
+        start = arrow.utcnow()
+
+        local_player_name = await sdk.Sdk.local_player.name()
 
         self.champions.clear()
         self.minions.clear()
@@ -75,12 +81,13 @@ class ObjectManager:
                 try:
                     tmp = Object(obj)  # TODO: Non string based check.
                     name = await tmp.name()
-                    if name.lower() in names:
+                    if name.lower() in names and name.lower() != local_player_name:
                         self.champions[name.lower()] = tmp
                     if "Minion" in name:
                         self.minions.append(tmp)
                 except:
                     continue
+        sdk.Sdk.BenchmarkData.object_manager_time = (arrow.utcnow() - start).total_seconds() * 1000
 
     async def select_lowest_target(self):
         for champion in self.champions.values():
@@ -92,4 +99,3 @@ class ObjectManager:
                 if champ_health > 0 and in_range and is_alive:
                     return champion
         return None
-

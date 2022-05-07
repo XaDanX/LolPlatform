@@ -29,4 +29,4 @@ async def script_update():
 
             if await Sdk.local_player.is_spell_ready(Globals.smite_id):
                 if object_health <= smite_damage:
-                        await Sdk.controller.press_key('f')
+                    await Sdk.controller.press_key('f')

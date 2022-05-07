@@ -47,13 +47,14 @@ class ScriptManager:
 
     async def update_scripts(self):
         for module in self.scripts.copy().values():
-            try:
-                await module.script_update()
+            #try:
+            await module.script_update()
+            """
             except AttributeError:
                 Logger.warning(f"Can not update script: {module.__name__}. Unloading.")
                 await self.unload(module.__name__)
             except pymem.exception.MemoryReadError:
-                """
-                    Sometimes randomly raised.. //? fix
-                """
+                    #Sometimes randomly raised.. //? fix
+
                 pass
+            """

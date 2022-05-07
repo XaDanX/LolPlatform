@@ -1,12 +1,15 @@
 import asyncio
 import dataclasses
 import imgui
+import arrow
 from glfw import *
 from imgui.integrations.glfw import GlfwRenderer
 from win32api import *
 from win32con import *
 from win32gui import *
 from OpenGL.GL import *
+
+import sdk.sdk as sdk
 
 
 @dataclasses.dataclass
@@ -34,7 +37,7 @@ def setup_style():
     style.frame_rounding = 0
     style.frame_padding = (8, 6)
     style.window_title_align = (0.5, 0.5)
-    style.window_min_size = (400, 500)
+    #style.window_min_size = (400, 500)
 
     style.colors[imgui.COLOR_TITLE_BACKGROUND] = rgb_to_float([227, 0, 0, 255])
     style.colors[imgui.COLOR_TITLE_BACKGROUND_ACTIVE] = rgb_to_float([227, 0, 0, 255])
@@ -69,7 +72,7 @@ def setup_style():
 
 
 class Overlay:
-    def __init__(self, target):
+    def __init__(self, target, overlay_name="Overlay"):
         init()
 
         imgui.create_context()
@@ -89,9 +92,9 @@ class Overlay:
         self.result = Result(width - self.rect[0], height - self.rect[1], mid_x, mid_y)
 
         self.window = create_window(width - 1,
-                                    height - 1, "Profesor", None, None)
+                                    height - 1, overlay_name, None, None)
 
-        self.window_handle = FindWindow(None, "Profesor")
+        self.window_handle = FindWindow(None, overlay_name)
 
         set_input_mode(self.window, CURSOR, CURSOR_DISABLED)
         make_context_current(self.window)
@@ -135,7 +138,16 @@ class Overlay:
             drawings here
         """
 
+        #  Draw benchmark
+
+        start = arrow.utcnow()
         try:
+            imgui.begin("Benchmark")
+            imgui.text(f"Total: {sdk.Sdk.BenchmarkData.total_time:.6f}ms")
+            imgui.text(f"Render: {sdk.Sdk.BenchmarkData.render_time:.6f}ms")
+            imgui.text(f"Script: {sdk.Sdk.BenchmarkData.script_update_time:.6f}ms")
+            imgui.text(f"Object: {sdk.Sdk.BenchmarkData.object_manager_time:.6f}ms")
+            imgui.end()
             imgui.render()
             self.impl.render(imgui.get_draw_data())
         except:
@@ -144,4 +156,8 @@ class Overlay:
         swap_buffers(self.window)
         glClear(GL_COLOR_BUFFER_BIT)
         poll_events()
+        sdk.Sdk.BenchmarkData.render_time = (arrow.utcnow() - start).total_seconds() * 1000
         await asyncio.sleep(0.0001)
+
+    def close(self):
+        destroy_window(self.window)

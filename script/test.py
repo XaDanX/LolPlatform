@@ -7,11 +7,6 @@ __description__ = "DevScript test."
 
 from utils.logger import Logger
 
-
-class Globals:
-    smite_id = 0
-
-
 async def script_init():
     pass
 
@@ -20,16 +15,9 @@ async def script_update():
     under_mouse_object = await Sdk.game.under_mouse_obj()
     if under_mouse_object:
         object_health = await under_mouse_object.health()
-        obj_pos = await under_mouse_object.read_pos()
+        obj_pos = await under_mouse_object.pos()
         name = await under_mouse_object.name()
-        attackable = await Object.in_basic_attack_range(Sdk.local_player, under_mouse_object)
-
-
-        imgui.begin(f"Object {await under_mouse_object.name()} info")
-        if attackable:
-            with imgui.font(Sdk.Fonts.ruda.get(16)):
-                imgui.text("Attackable")
-
+        imgui.begin("info")
         with imgui.font(Sdk.Fonts.ruda.get(16)):
             imgui.text(f"champion: {await under_mouse_object.name()}")
             imgui.text(f"health: {await under_mouse_object.health()}")

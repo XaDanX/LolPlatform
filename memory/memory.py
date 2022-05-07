@@ -5,11 +5,7 @@ from typing import Any
 import pymem
 import asyncio
 
-"""
 
-Made by StarrFox
-
-"""
 type_format_dict = {
     "char": "<c",
     "signed char": "<b",

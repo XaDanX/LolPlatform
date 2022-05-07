@@ -26,3 +26,9 @@ class Sdk:
 
     class Data:
         summoner_spell = SummonerSpell
+
+    class BenchmarkData:
+        total_time = 0.
+        render_time = 0.
+        script_update_time = 0.
+        object_manager_time = 0.

@@ -1,6 +1,7 @@
 import asyncio
 
 import keyboard, mouse
+from ctypes import *
 
 
 class Controller:
@@ -24,3 +25,8 @@ class Controller:
         mouse.release(mouse.RIGHT)
         await asyncio.sleep(0.001)
         mouse.move(x_b, y_b)
+
+    @classmethod
+    def mouse_input_lock(cls, lock):
+        _ = windll.user32.BlockInput(lock)
+

@@ -99,10 +99,16 @@ class Object:
         else:
             return 0
 
-    async def read_pos(self):
+    async def pos(self):
         x = await Memory().read(self.base + offsets.obj_pos, "float")
         y = await Memory().read(self.base + offsets.obj_pos + 0x4, "float")
         z = await Memory().read(self.base + offsets.obj_pos + 0x8, "float")
+        return Vec3(x, y, z)
+
+    async def health_bar_pos(self):
+        x = await Memory().read(self.base + offsets.obj_health_bar_position, "float")
+        y = await Memory().read(self.base + offsets.obj_health_bar_position + 0x4, "float")
+        z = await Memory().read(self.base + offsets.obj_health_bar_position + 0x8, "float")
         return Vec3(x, y, z)
 
     async def is_visible(self):
@@ -125,8 +131,8 @@ class Object:
 
     @staticmethod
     async def distance_between(obj1, obj2):
-        obj1_pos = await obj1.read_pos()
-        obj2_pos = await obj2.read_pos()
+        obj1_pos = await obj1.pos()
+        obj2_pos = await obj2.pos()
         return math.sqrt((obj1_pos.x - obj2_pos.x)**2 + (obj1_pos.y - obj2_pos.y)**2)
 
 
