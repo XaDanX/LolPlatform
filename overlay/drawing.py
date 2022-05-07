@@ -27,35 +27,26 @@ class Drawing:
         lines = []
         step = math.pi * 2 / points
         theta = 0
-        i = 0
-        while i <= points:
+
+        while theta <= math.pi * 2:
             world_space = Vec3(world_pos.x + radius * math.cos(theta), world_pos.y,
-                               world_pos.z - radius * math.sin(theta))
+                               world_pos.z + radius * math.sin(theta))
             screen_space = w2s(world_space, render.view_proj_matrix)
 
-            if screen_space.x > 0 and screen_space.y > 0 and Drawing.is_on_screen(screen_space, render.width / 2,
-                                                                                  render.height / 2,
-                                                                                  render.width, render.height):
+            if screen_space:
                 lines.append(Vec2(screen_space.x, screen_space.y))
 
             theta += step
-            i += 1
 
         if lines:
             glLineWidth(thickness)
-            glBegin(GL_LINES)
+            glBegin(GL_LINE_STRIP)
             glColor4f(*color)
-
-            last = lines[0]
 
             for line in lines:
                 glVertex2f(line.x, line.y)
-                glVertex2f(last.x, last.y)
-                last = line
-
             glEnd()
 
-        # cls._line(int(line.x), int(line.y), int(line.x) + 2, int(line.y) + 2, 10, (255, 0, 0, 255))
 
     @classmethod
     async def draw_text_at(cls, world_pos: Vec3, color, text):
