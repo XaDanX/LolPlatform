@@ -13,7 +13,7 @@ from async_lru import alru_cache
 class Drawing:
 
     @classmethod
-    def _line(cls, x1, y1, x2, y2, width, color):
+    def line(cls, x1, y1, x2, y2, width, color):
         glLineWidth(width)
         glBegin(GL_LINES)
         glColor4f(*color)
@@ -22,8 +22,8 @@ class Drawing:
         glEnd()
 
     @classmethod
-    async def draw_circle_at(cls, world_pos: Vec3, radius, color, thickness=2, points=300):
-        render = sdk.Sdk.game.render()
+    async def draw_circle_at(cls, world_pos: Vec3, radius, color, thickness=2, points=100):
+        render = await sdk.Sdk.game.render()
         lines = []
         step = math.pi * 2 / points
         theta = 0

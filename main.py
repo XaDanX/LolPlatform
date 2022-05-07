@@ -7,6 +7,7 @@ from imgui import new_frame
 
 from threading import Thread
 
+import sdk.game
 from utils.logger import Logger
 from managers.scripts_manager import ScriptManager
 
@@ -31,7 +32,7 @@ async def main():
 
         try:
             Sdk.object_manager = ObjectManager()
-            await Sdk.object_manager.update()
+            Sdk.object_manager.update()
         except pymem.exception.MemoryReadError:
             sleep(1)
 
@@ -45,17 +46,23 @@ async def main():
         font = Sdk.Renderer.renderer.craft_font(x)
         Sdk.Fonts.ruda[x] = font
 
-    fast_render_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
-    fast_render_thread.start()
+    # fast_render_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
+    # fast_render_thread.start()
+
+    object_manager_update_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
+    object_manager_update_thread.start()
 
     script_manager = ScriptManager()
 
     script_manager.load("script.avarness")
-    script_manager.load("script.orbwalker")
 
     await script_manager.initialize_scripts()
 
     await Sdk.Renderer.renderer.update()
+
+    render = await sdk.game.Game.render()
+    Sdk.Info.width = render.width
+    Sdk.Info.height = render.height
 
     while True:
         for x in range(300):
@@ -73,14 +80,10 @@ async def main():
 
             Sdk.BenchmarkData.total_time = (arrow.utcnow() - start).total_seconds() * 1000
 
-        #  Update Objects
-        await Sdk.object_manager.update()
-
 
 if __name__ == "__main__":
     Logger().init()
     windll.kernel32.SetConsoleTitleA("Some private scripting platform.")
-    Logger.log("You are using a private scripting platform, please don't share it with anyone and have fun.")
     Logger.log("Waiting for game.")
     while True:
         try:

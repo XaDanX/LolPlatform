@@ -88,13 +88,13 @@ async def walk(x, y):
 
 async def script_update():
     imgui.begin("OrbWalker DEBUG")
-    imgui.text(f"Windup: {ScriptData.last_ret} // possibly wrong ret")
+    imgui.text(f"Windup: {ScriptData.last_ret}")
     if keyboard.is_pressed(' '):
         target = await Sdk.object_manager.select_lowest_target()
         if target is not None:
             team = await target.team()
             if team != await Sdk.local_player.team():
-                render = Sdk.game.render()
+                render = await Sdk.game.render()
                 game_time = await Sdk.game.time()
                 pos = await target.pos()
                 name = await target.name()
@@ -109,8 +109,7 @@ async def script_update():
                 e = imgui.get_overlay_draw_list()
                 attack_range = Sdk.champion_stats.get_champion_info(name).raw.get("attackRange")
                 selection_radius = Sdk.champion_stats.get_radius(name.lower())
-                await Sdk.Renderer.drawing.draw_circle_at(pos, attack_range + selection_radius, (255, 0, 0, 255), 3)
-                Sdk.Renderer.drawing._line(player_pos.x, player_pos.y, w2s_pos.x, w2s_pos.y, 3, (255, 0, 0, 255))
+                Sdk.Renderer.drawing.line(player_pos.x, player_pos.y, w2s_pos.x, w2s_pos.y, 3, (255, 0, 0, 255))
 
                 await walk(w2s_pos.x, w2s_pos.y)
 

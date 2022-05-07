@@ -32,3 +32,7 @@ class Sdk:
         render_time = 0.
         script_update_time = 0.
         object_manager_time = 0.
+
+    class Info:
+        width = 0
+        height = 0

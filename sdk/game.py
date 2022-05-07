@@ -73,7 +73,7 @@ class Game:
         else:
             return None
 
-    """
+
     @classmethod
     async def render(cls):
         render_ptr = await Memory().read(Memory.process.base_address + offsets.renderer, "int")
@@ -88,7 +88,10 @@ class Game:
         view_proj_matrix = multiple_square_matrix(view_matrix_unp, proj_view_matrix_unp, 4)
 
         return Render(width, height, view_matrix_unp, proj_view_matrix_unp, view_proj_matrix)
+
+
     """
     @classmethod
     def render(cls):
         return Game.fast_render.get_render()
+    """

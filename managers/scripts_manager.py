@@ -1,7 +1,9 @@
 import importlib
 
+import arrow
 import pymem
 
+import sdk.sdk as sdk
 from utils.logger import Logger
 
 
@@ -46,6 +48,7 @@ class ScriptManager:
                 await self.unload(module.__name__)
 
     async def update_scripts(self):
+        start = arrow.utcnow()
         for module in self.scripts.copy().values():
             #try:
             await module.script_update()
@@ -58,3 +61,4 @@ class ScriptManager:
 
                 pass
             """
+        sdk.Sdk.BenchmarkData.script_update_time = (arrow.utcnow() - start).total_seconds() * 1000
