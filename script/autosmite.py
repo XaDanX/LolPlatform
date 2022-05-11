@@ -8,6 +8,14 @@ class Globals:
     smite_id = 0
 
 
+async def script_menu():
+    pass
+
+
+async def script_unload():
+    pass
+
+
 async def script_init():
     if Globals.smite_id == 0:
         slot_1 = await Sdk.local_player.get_spell_by_slot(4)

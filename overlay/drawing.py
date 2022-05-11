@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 
 import imgui
@@ -47,17 +48,17 @@ class Drawing:
                 glVertex2f(line.x, line.y)
             glEnd()
 
-
     @classmethod
     async def draw_text_at(cls, world_pos: Vec3, color, text):
 
-        render = sdk.Sdk.game.render()
+        render = await sdk.Sdk.game.render()
 
         position = w2s(world_pos, render.view_proj_matrix)
-        if position.x > 0 and position.y > 0 and Drawing.is_on_screen(position, render.width / 2, render.height / 2,
-                                                                      render.width, render.height):
-            e = imgui.get_overlay_draw_list()
-            e.add_text(position.x, position.y, color, text)
+        if position:
+            if position.x > 0 and position.y > 0 and Drawing.is_on_screen(position, render.width / 2, render.height / 2,
+                                                                          render.width, render.height):
+                e = imgui.get_overlay_draw_list()
+                e.add_text(position.x, position.y, color, text)
 
     @classmethod
     def is_on_screen(cls, screen_pos: Vec2, offset_x, offset_y, width, height):

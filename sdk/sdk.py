@@ -36,3 +36,6 @@ class Sdk:
     class Info:
         width = 0
         height = 0
+
+    class Internal:
+        script_manager: None

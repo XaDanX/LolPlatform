@@ -10,6 +10,7 @@ from win32gui import *
 from OpenGL.GL import *
 
 import sdk.sdk as sdk
+from memory.memory import Memory
 
 
 @dataclasses.dataclass
@@ -37,7 +38,7 @@ def setup_style():
     style.frame_rounding = 0
     style.frame_padding = (8, 6)
     style.window_title_align = (0.5, 0.5)
-    #style.window_min_size = (400, 500)
+    # style.window_min_size = (400, 500)
 
     style.colors[imgui.COLOR_TITLE_BACKGROUND] = rgb_to_float([227, 0, 0, 255])
     style.colors[imgui.COLOR_TITLE_BACKGROUND_ACTIVE] = rgb_to_float([227, 0, 0, 255])
@@ -75,6 +76,10 @@ class Overlay:
     def __init__(self, target, overlay_name="Overlay"):
         init()
 
+        self.show_menu = False
+
+        self.is_visible = True
+
         imgui.create_context()
 
         window_hint(FLOATING, True)
@@ -96,7 +101,7 @@ class Overlay:
 
         self.window_handle = FindWindow(None, overlay_name)
 
-        set_input_mode(self.window, CURSOR, CURSOR_DISABLED)
+        # set_input_mode(self.window, CURSOR, CURSOR_DISABLED)
         make_context_current(self.window)
         swap_interval(0)
 
@@ -112,12 +117,20 @@ class Overlay:
 
         setup_style()
 
+        self.select_index = 0
+
     def craft_font(self, size):
         font = self.io.fonts.add_font_from_file_ttf(
             "Ruda-Bold.ttf", size,
         )
         self.impl.refresh_font_texture()
         return font
+
+    def hide(self):
+        ShowWindow(self.window_handle, SW_HIDE)
+
+    def show(self):
+        ShowWindow(self.window_handle, SW_SHOW)
 
     def glInit(self):
         glPushAttrib(GL_ALL_ATTRIB_BITS)
@@ -137,17 +150,50 @@ class Overlay:
         """
             drawings here
         """
+        poll_events()
+        self.impl.process_inputs()
+
+        keystate = GetAsyncKeyState(0x2D) & 0x0001
+        if keystate > 0:
+            winlong = GetWindowLong(self.window_handle, GWL_EXSTYLE)
+
+            if not self.show_menu:
+                if winlong != WS_EX_LAYERED | WS_EX_TOPMOST:
+                    SetWindowLong(self.window_handle, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TOPMOST)
+
+            if self.show_menu:
+                if winlong != WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TRANSPARENT:
+                    SetWindowLong(self.window_handle, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TRANSPARENT)
+
+            self.show_menu = not self.show_menu
 
         #  Draw benchmark
 
         start = arrow.utcnow()
         try:
-            imgui.begin("Benchmark")
-            imgui.text(f"Total: {sdk.Sdk.BenchmarkData.total_time:.6f}ms")
-            imgui.text(f"Render: {sdk.Sdk.BenchmarkData.render_time:.6f}ms")
-            imgui.text(f"Script: {sdk.Sdk.BenchmarkData.script_update_time:.6f}ms")
-            imgui.text(f"Object: {sdk.Sdk.BenchmarkData.object_manager_time:.6f}ms")
-            imgui.end()
+            if self.show_menu:
+                imgui.begin("Benchmark")
+                imgui.text(f"Total: {sdk.Sdk.BenchmarkData.total_time:.6f}ms")
+                imgui.text(f"Render: {sdk.Sdk.BenchmarkData.render_time:.6f}ms")
+                imgui.text(f"Script: {sdk.Sdk.BenchmarkData.script_update_time:.6f}ms")
+                imgui.text(f"Object: {sdk.Sdk.BenchmarkData.object_manager_time:.6f}ms")
+                imgui.end()
+
+                imgui.begin("Script Manager")
+                items = [i for i in sdk.Sdk.Internal.script_manager.script_files.values()]
+                item_names = [i.name for i in items]
+                if out := imgui.combo("Script", self.select_index, item_names):
+                    if out[0]:
+                        self.select_index = out[1]
+
+                    if imgui.button("Load"):
+                        await sdk.Sdk.Internal.script_manager.load(items[self.select_index].load_path)
+                    imgui.same_line()
+                    if imgui.button("Unload"):
+                        await sdk.Sdk.Internal.script_manager.unload(items[self.select_index].name)
+
+                imgui.end()
+
             imgui.render()
             self.impl.render(imgui.get_draw_data())
         except:
@@ -155,7 +201,6 @@ class Overlay:
 
         swap_buffers(self.window)
         glClear(GL_COLOR_BUFFER_BIT)
-        poll_events()
         sdk.Sdk.BenchmarkData.render_time = (arrow.utcnow() - start).total_seconds() * 1000
         await asyncio.sleep(0.0001)
 

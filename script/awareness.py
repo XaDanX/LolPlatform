@@ -1,7 +1,7 @@
 from sdk.sdk import Sdk
 import imgui
 
-__name__ = "avarness"
+__name__ = "awareness"
 __description__ = "DevScript test."
 
 from utils.logger import Logger
@@ -13,6 +13,17 @@ class Globals:
 
 async def script_init():
     pass
+
+async def script_unload():
+    pass
+
+
+async def script_menu():
+    imgui.begin("Awareness Menu")
+    if imgui.button("Test"):
+        Logger.log("Works!")
+
+    imgui.end()
 
 
 async def script_update():
@@ -26,6 +37,7 @@ async def script_update():
                 name = await under_mouse_object.name()
 
                 e = imgui.get_overlay_draw_list()
-                attack_range = Sdk.champion_stats.get_champion_info(name).raw.get("attackRange")
+                attack_range = await under_mouse_object.attack_range()
                 selection_radius = Sdk.champion_stats.get_radius(name.lower())
-                await Sdk.Renderer.drawing.draw_circle_at(obj_pos, attack_range + selection_radius, (255, 0, 0, 255), 3, 100)
+                await Sdk.Renderer.drawing.draw_circle_at(obj_pos, attack_range + selection_radius, (255, 0, 0, 255), 3,
+                                                          100)

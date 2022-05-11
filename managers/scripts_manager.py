@@ -1,3 +1,5 @@
+import dataclasses
+import glob
 import importlib
 
 import arrow
@@ -7,16 +9,37 @@ import sdk.sdk as sdk
 from utils.logger import Logger
 
 
+@dataclasses.dataclass
+class Script:
+    path: str
+    name: str
+    load_path: str
+
+
 class ScriptManager:
 
     def __init__(self):
         self.scripts = {}
+        self.script_files = {}
 
-    def load(self, path):
+    def load_from_directory(self, path="script"):
+        scripts = glob.glob(f"{path}/*.py")
+        for script in scripts:
+            path = script
+            name = path.split("\\")[-1].replace(".py", "")
+            load_path = path.replace("\\", ".").replace(".py", "")
+            if "__init__" in load_path:
+                continue
+            self.script_files[name] = Script(path, name, load_path)
+
+    async def load(self, path):
         try:
             mod = importlib.import_module(path)
+            if mod.__name__ in self.scripts:
+                return
             self.scripts[mod.__name__] = mod
-            Logger.log(f"Loaded script: {mod.__name__}.")
+            await self.initialize_script(mod)
+            Logger.log(f"Loaded script: {mod}.")
         except ImportError:
             Logger.warning(f"Cannot load script {path}")
 
@@ -24,7 +47,7 @@ class ScriptManager:
         try:
             script = self.scripts.get(name)
         except KeyError:
-            Logger.warning(f"Cannot unload script: name")
+            Logger.warning(f"Cannot unload script: {name}")
             return
         try:
             await script.script_unload()
@@ -36,22 +59,26 @@ class ScriptManager:
             Logger.warning(f"Cannot unload script: name")
             return
 
-    async def initialize_scripts(self):
-        for module in self.scripts.copy().values():
-            try:
-                await module.script_init()
-            except AttributeError:
-                Logger.warning(f"Cannot initialize script: {module.__name__}. Unloading.")
-                await self.unload(module.__name__)
-            except pymem.exception.MemoryReadError:
-                Logger.error(f"Errorduring initializing script: {__name__}. Unloading.")
-                await self.unload(module.__name__)
+    async def initialize_script(self, mod):
+        try:
+
+            module = mod
+
+            await module.script_init()
+        except AttributeError:
+            Logger.warning(f"Cannot initialize script: {module.__name__}. Unloading.")
+            await self.unload(module.__name__)
+        except pymem.exception.MemoryReadError:
+            Logger.error(f"Errorduring initializing script: {__name__}. Unloading.")
+            await self.unload(module.__name__)
 
     async def update_scripts(self):
         start = arrow.utcnow()
         for module in self.scripts.copy().values():
-            #try:
+            # try:
             await module.script_update()
+            if sdk.Sdk.Renderer.renderer.show_menu:
+                await module.script_menu()
             """
             except AttributeError:
                 Logger.warning(f"Can not update script: {module.__name__}. Unloading.")

@@ -1,9 +1,28 @@
+import struct
 from dataclasses import dataclass
 from functools import lru_cache
 import functools
 
 from utils.logger import Logger
 from timeit import default_timer as timer
+
+
+def int_from_buffer(data, offset):
+    return int.from_bytes(data[offset:offset + 4], 'little')
+
+
+def float_from_buffer(data, offset):
+    f, = struct.unpack('f', data[offset:offset + 4])
+    return f
+
+
+def double_from_buffer(data, offset):
+    d, = struct.unpack('d', data[offset:offset + 8])
+    return d
+
+
+def bool_from_buffer(data, offset):
+    return data[offset:offset + 1] != b'\x00'
 
 
 def benchmark(func):
@@ -17,10 +36,10 @@ def benchmark(func):
     return inner
 
 
-
 def ignore_unhashable(func):
     uncached = func.__wrapped__
     attributes = functools.WRAPPER_ASSIGNMENTS + ('cache_info', 'cache_clear')
+
     @functools.wraps(func, assigned=attributes)
     def wrapper(*args, **kwargs):
         try:
@@ -29,15 +48,16 @@ def ignore_unhashable(func):
             if 'unhashable type' in str(error):
                 return uncached(*args, **kwargs)
             raise
+
     wrapper.__uncached__ = uncached
     return wrapper
+
 
 @dataclass
 class Vec3:
     x: float
     y: float
     z: float
-
 
 
 @dataclass
@@ -65,7 +85,6 @@ def w2s(pos: Vec3, matrix):
     out_y = -(height / 2 * M_y) + (M_y + height / 2)
 
     return Vec2(out_x, out_y)
-
 
 
 def multiple_square_matrix(a, b, size: int):

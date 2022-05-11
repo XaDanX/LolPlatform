@@ -3,11 +3,15 @@ from time import sleep, monotonic
 from ctypes import windll
 
 import arrow
+import imgui
 from imgui import new_frame
 
 from threading import Thread
 
+import win32gui
+
 import sdk.game
+from sdk.utils import Vec3
 from utils.logger import Logger
 from managers.scripts_manager import ScriptManager
 
@@ -46,17 +50,13 @@ async def main():
         font = Sdk.Renderer.renderer.craft_font(x)
         Sdk.Fonts.ruda[x] = font
 
-    # fast_render_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
-    # fast_render_thread.start()
-
     object_manager_update_thread = Thread(target=Game.fast_render.calculate_matrices_thread, args=())
     object_manager_update_thread.start()
 
     script_manager = ScriptManager()
+    Sdk.Internal.script_manager = script_manager
 
-    script_manager.load("script.avarness")
-
-    await script_manager.initialize_scripts()
+    script_manager.load_from_directory("script")
 
     await Sdk.Renderer.renderer.update()
 
@@ -65,20 +65,20 @@ async def main():
     Sdk.Info.height = render.height
 
     while True:
-        for x in range(300):
-            start = arrow.utcnow()
-            try:
-                new_frame()
-            except:
-                pass
 
-            #  Execute scripts
-            await script_manager.update_scripts()
+        start = arrow.utcnow()
+        try:
+            new_frame()
+        except:
+            pass
 
-            #  Render frame
-            await Sdk.Renderer.renderer.update()
+        #  Execute scripts
+        await script_manager.update_scripts()
 
-            Sdk.BenchmarkData.total_time = (arrow.utcnow() - start).total_seconds() * 1000
+        #  Render frame
+        await Sdk.Renderer.renderer.update()
+
+        Sdk.BenchmarkData.total_time = (arrow.utcnow() - start).total_seconds() * 1000
 
 
 if __name__ == "__main__":

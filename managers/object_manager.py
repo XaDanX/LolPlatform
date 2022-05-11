@@ -117,3 +117,26 @@ class ObjectManager:
                 if champ_health > 0 and in_range and is_alive:
                     return champion
         return None
+
+    async def get_closest_target(self):
+
+        old_dist = 99999999999
+        target = None
+
+        player_pos = await sdk.Sdk.local_player.pos()
+
+        for champion in self.champions.values():
+            if await champion.name() != await sdk.Sdk.local_player.name():
+                champ_health = await champion.health()
+                visible = await champion.is_visible()
+
+                if champ_health > 0 and visible:
+                    champ_pos = await champion.pos()
+
+                    dist = Object.distance_between_vec(player_pos, champ_pos)
+                    if dist < old_dist:
+                        old_dist = dist
+                        target = champion
+        return target
+
+
