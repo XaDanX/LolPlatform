@@ -1,6 +1,3 @@
-import time
+from ctypes import wintypes
 
-start = time.monotonic()
-time.sleep(0.001)
-end = time.monotonic()
-
+print(wintypes.BYTE)

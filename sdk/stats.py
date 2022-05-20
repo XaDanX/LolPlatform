@@ -61,6 +61,11 @@ class ChampionStats:
             for spell in self.champion_data[target.lower()][root_key]['spellNames']
         ]
 
+    @lru_cache(maxsize=None)
+    def get_health_bar_height(self, target):
+        root_key = 'characters/{}/characterrecords/root'.format(target.lower())
+        return self.champion_data[target.lower()][root_key].get("healthBarHeight")
+
     def names(self):
         return list(self.champion_data.keys())
 
@@ -70,11 +75,25 @@ class ChampionStats:
         return self.champion_data[target.lower()][root_key].get('overrideGameplayCollisionRadius', 65.)
 
 
+class SpellData:
+    def __init__(self):
+        self.data = [{
+            "name": "EzrealQ",
+            "icon": "Ezreal_Q",
+            "flags": 6154,
+            "delay": 0.25,
+            "castRange": 1150.0,
+            "castRadius": 210.0,
+            "width": 60.0,
+            "height": 100.0,
+            "speed": 2000.0,
+            "travelTime": 0.0,
+            "projectDestination": True
+        }]
 
-""" // castRadius[0]?
-c = ChampionStats()
-spells = c.get_spells("rengar")
-for e in spells:
-    print(e)
+    def get_spell_by_name(self, name):
+        return next(filter(lambda spell: spell['name'] == name, self.data), None)
 
-"""
+
+
+

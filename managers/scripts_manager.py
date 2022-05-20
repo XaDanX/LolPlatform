@@ -21,8 +21,12 @@ class ScriptManager:
     def __init__(self):
         self.scripts = {}
         self.script_files = {}
+        self.path = ""
 
     def load_from_directory(self, path="script"):
+        self.path = path
+        self.scripts.clear()
+        self.script_files.clear()
         scripts = glob.glob(f"{path}/*.py")
         for script in scripts:
             path = script
@@ -39,11 +43,12 @@ class ScriptManager:
                 return
             self.scripts[mod.__name__] = mod
             await self.initialize_script(mod)
-            Logger.log(f"Loaded script: {mod}.")
+            Logger.log(f"Loaded script: {mod.__name__}.")
         except ImportError:
             Logger.warning(f"Cannot load script {path}")
 
     async def unload(self, name):
+        self.load_from_directory(self.path)
         try:
             script = self.scripts.get(name)
         except KeyError:

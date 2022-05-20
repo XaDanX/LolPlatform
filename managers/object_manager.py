@@ -1,5 +1,6 @@
-import random
+import asyncio
 import time
+from enum import Enum
 
 import pymem
 from pymem.exception import MemoryReadError
@@ -8,10 +9,12 @@ from recordclass import recordclass
 from memory.memory import Memory
 from sdk.object import Object
 import sdk.offsets as offsets
-from sdk.stats import ChampionStats
+from sdk.stats import ChampionStats, SpellData
 import sdk.sdk as sdk
 
 import arrow
+
+from utils.logger import Logger
 
 Node = recordclass('Node', 'address, next')
 
@@ -25,14 +28,47 @@ def int_from_buffer(data, offset):
     return int.from_bytes(data[offset:offset + 4], 'little')
 
 
+# TODO: better obj manager..
+
+class UnitData(Enum):
+    TURRET = "Turret"
+    ORDER_MINION = ["SRU_OrderMinionRanged", "SRU_OrderMinionMelee", "SRU_OrderMinionSiege"]
+    CHAOS_MINION = ["SRU_ChaosMinionRanged", "SRU_ChaosMinionMelee", "SRU_ChaosMinionSiege"]
+    JUNGLE_MONSTERS = ["SRU_Krug", "SRU_KrugMini", "SRU_Razorbeak", "SRU_RazorbeakMini",
+                       "SRU_Murkwolf", "SRU_MurkwolfMini", "SRU_Gromp", "Sru_Crab", "SRU_Red", "SRU_Blue"]
+    DRAGONS = ["SRU_Dragon_Air", "SRU_Dragon_Fire", "SRU_Dragon_Water", "SRU_Dragon_Earth", "SRU_Dragon_Elder"]
+
+
+blacklist = ["PreSeason_Turret_Shield", "פ", "SRUAP_MageCrystal",
+             "SRU_CampRespawnMarker", "SRUAP_Turret_Order5", "SRU_PlantRespawnMarker",
+             "@|v"]  # TODO: Can cause compile error
+
+
 class ObjectManager:
 
     def __init__(self):
+
+        self.mem = None
+
         self.champions = {
 
         }
-        self.minions = []
+        self.order_minions = []
+        self.chaos_minions = []
+        self.missiles = []
+        self.turrets = []
+        self.jungle_monsters = []
         self.stats = ChampionStats()
+
+        self.champions_names = self.stats.names()
+
+        self.spell_data = SpellData()
+
+        self.MAX_UNITS = 4096
+
+        self.unit_read = 0
+        self.visited_nodes = []
+        self.unit_scan_pointers = []
 
     def get_champion_by_name(self, name) -> Object:
         champion = self.champions[name.lower()]
@@ -41,71 +77,114 @@ class ObjectManager:
     def get_all_champions(self):
         return list(self.champions.values())
 
-    def update(self):  # Threaded update for better performance.
+    def scan_units(self, obj_manager):
 
-        start = arrow.utcnow()
+        root_unit_address = self.mem.read_int(obj_manager + offsets.obj_map_root)
+        if root_unit_address <= 0:
+            return
 
-        self.champions.clear()
-        self.minions.clear()
+        self.unit_read = 0
+        self.order_minions.clear()
+        self.chaos_minions.clear()
+        self.visited_nodes.clear()
+        self.turrets.clear()
 
-        # object_pointers = await Memory().read(Memory.process.base_address + offsets.obj_manager, "int")
+        self.scan_unit(root_unit_address)
 
-        object_pointers = Memory.process.read_int(Memory.process.base_address + offsets.obj_manager)
+    def scan_unit(self, address):
+        self.unit_read += 1
 
-        # root_node = Node(await Memory().read(object_pointers + offsets.obj_map_root, "int"), None)
+        if self.unit_read > self.MAX_UNITS or address <= 0 or address in self.visited_nodes:
+            return
 
-        root_node = Node(Memory.process.read_int(object_pointers + offsets.obj_map_root), None)
+        self.visited_nodes.append(address)
 
-        addresses_seen = set()
-        current_node = root_node
-        pointers = []
-        count = 0
-        while current_node is not None and count < 500:  # max
-            if current_node.address in addresses_seen:
-                current_node = current_node.next
-                continue
-            addresses_seen.add(current_node.address)
-            try:
-                # data = await Memory().read_bytes(current_node.address, 0x18)
+        try:
+            data = self.mem.read_bytes(address, 0x18)
+        except MemoryReadError:
+            return
 
-                data = Memory.process.read_bytes(current_node.address, 0x18)
+        net_id = int_from_buffer(data, offsets.obj_map_node_net_id)
 
-                count += 1
-            except MemoryReadError:
-                pass
-            else:
-                for i in range(3):
-                    child_address = int_from_buffer(data, i * 4)
-                    if child_address in addresses_seen:
-                        continue
-                    linked_insert(current_node, child_address)
-                net_id = int_from_buffer(data, offsets.obj_map_node_net_id)
-                if net_id - 0x40000000 <= 0x100000:
-                    pointers.append(int_from_buffer(data, offsets.obj_map_node_object))
-            current_node = current_node.next
+        if net_id >= 0x40000000:
+            self.update_unit(net_id, int_from_buffer(data, offsets.obj_map_node_object))
 
-        names = self.stats.names()
-        for obj in pointers:
-            if obj > 0:
+        for x in range(0,3):
+            self.scan_unit(int_from_buffer(data, (x*4)))
+            self.scan_unit(int_from_buffer(data, (x*4)))
+            self.scan_unit(int_from_buffer(data, (x*4)))
+
+    def update_unit(self, net_id, address):
+        if address <= 0:
+            return
+
+        if net_id <= 0:
+            return
+
+        try:
+            name_ptr = self.mem.read_int(address + offsets.obj_name)
+            name = self.mem.read_string(name_ptr, 50)
+        except (UnicodeDecodeError, pymem.exception.MemoryReadError):
+            return
+
+        if name.strip() in blacklist:
+            return
+        if not name:
+            return
+
+        if name == UnitData.TURRET.value:
+            self.turrets.append(address)
+        elif name in UnitData.ORDER_MINION.value:
+            self.order_minions.append(address)
+        elif name in UnitData.CHAOS_MINION.value:
+            self.chaos_minions.append(address)
+        elif name.lower() in self.champions_names and name.lower() not in self.champions:
+            Logger.warning(f"Found new champion: {name}")
+            self.champions[name.lower()] = Object(address)
+        elif name in UnitData.JUNGLE_MONSTERS.value:
+            self.jungle_monsters.append(address)
+        elif name in UnitData.DRAGONS.value:
+            self.jungle_monsters.append(address)
+        elif "VE" in name:
+            self.champions[name.lower()] = Object(address)
+
+
+        """  Fuck missiles, we are external :)
+        elif spell_info_ptr := self.mem.read_int(address + offsets.missile_spell_info):
+            if spell_info_ptr:
                 try:
-                    try:
-                        name_ptr = Memory.process.read_int(obj + offsets.obj_name)
-                        name = Memory.process.read_string(name_ptr, 16)
-                    except (UnicodeDecodeError, pymem.exception.MemoryReadError):
-                        continue
+                    data = self.mem.read_int(spell_info_ptr + offsets.spell_info_spell_data)
+                except pymem.exception.MemoryReadError:
+                    return
 
-                    if name.lower() in names and name.lower():
-                        self.champions[name.lower()] = Object(obj)
-                    if "Minion" in name:
-                        self.minions.append(Object(obj))
-                except:
-                    pass
-        sdk.Sdk.BenchmarkData.object_manager_time = (arrow.utcnow() - start).total_seconds() * 1000
+                if data:
+
+                    try:
+                        name_ptr = self.mem.read_int(data + offsets.missile_name)
+                        name = self.mem.read_string(name_ptr, 50)
+                    except:
+                        name = ""
+                    if name:
+                        if self.spell_data.get_spell_by_name(name):
+                            # print(self.spell_data.get_spell_by_name(name))
+                            self.missiles.append(spell_info_ptr)
+                        else:
+
+                            self.missiles.append(spell_info_ptr)
+        """
 
     def update_thread_job(self):
+        p = None
+        while not p:
+            p = pymem.Pymem("league of legends.exe")
+
+        self.mem = p
+
+        Logger.log("ObjectManager connected!")
+
         while True:
-            self.update()
-            time.sleep(5)
+            self.scan_units(self.mem.read_int(self.mem.base_address + offsets.obj_manager))
+            time.sleep(2)
 
     async def select_lowest_target(self):
         for champion in self.champions.values():
@@ -123,20 +202,17 @@ class ObjectManager:
         old_dist = 99999999999
         target = None
 
-        player_pos = await sdk.Sdk.local_player.pos()
+        player_pos = sdk.Sdk.local_player.object_data.position
 
         for champion in self.champions.values():
-            if await champion.name() != await sdk.Sdk.local_player.name():
-                champ_health = await champion.health()
-                visible = await champion.is_visible()
+            champion_data = champion.object_data
+            if champion_data.name != sdk.Sdk.local_player.object_data.name:
 
-                if champ_health > 0 and visible:
-                    champ_pos = await champion.pos()
+                if champion_data.health > 0 and champion_data.visible:
+                    champ_pos = champion_data.position
 
                     dist = Object.distance_between_vec(player_pos, champ_pos)
                     if dist < old_dist:
                         old_dist = dist
                         target = champion
         return target
-
-

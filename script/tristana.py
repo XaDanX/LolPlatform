@@ -30,19 +30,23 @@ async def script_menu():
 async def e_effective_damage():
     under_mouse = await Sdk.game.under_mouse_obj()
     if under_mouse:
-        if under_mouse.base != Sdk.local_player.base:
-            tristana_e_spell = await Sdk.local_player.get_spell_by_slot(2)
-            player_crit_chance = await Sdk.local_player.crit_chance()
+        if under_mouse != Sdk.local_player.base and under_mouse in Sdk.object_manager.champions.values():
 
-            target_armor = await under_mouse.armor()
+            target = Object(under_mouse)
+            target_data = await target.load_object()
 
-            local_player_ad = int(await Sdk.local_player.attack_damage()) + int(
-                await Sdk.local_player.bonus_attack_damage())
+            tristana_e_spell = Sdk.local_player.spell_book.e_spell
+            player_crit_chance = Sdk.local_player.object_data.crit_chance
+
+            target_armor = target_data.armor
+
+            local_player_ad = Sdk.local_player.object_data.attack_damage + \
+                              Sdk.local_player.object_data.bonus_attack_damage
             local_player_crit_mult = player_crit_chance * 0.33
 
             damage = Globals.DAMAGE[tristana_e_spell.level] + (
-                        local_player_ad * Globals.PERCENTAGE[tristana_e_spell.level]) + local_player_crit_mult + (
-                                 4 * 0.3)
+                    local_player_ad * Globals.PERCENTAGE[tristana_e_spell.level]) + local_player_crit_mult + (
+                             4 * 0.3)
 
             tristana_e_spell_damage = Object.effective_damage(damage, target_armor)
 
@@ -50,23 +54,24 @@ async def e_effective_damage():
 
             combo_damage = tristana_e_spell_damage + (auto_attack_effective * 4)
 
-            obj_pos = await under_mouse.pos()
+            obj_pos = target_data.position
 
             obj_pos.y += 100
-
-            if combo_damage > await under_mouse.health():
-                await sdk.sdk.Sdk.Renderer.drawing.draw_text_at(obj_pos, Globals.KILLABLE_COLOR,
-                                                                "Combo Damage: {}".format(combo_damage))
-            else:
-                await sdk.sdk.Sdk.Renderer.drawing.draw_text_at(obj_pos, Globals.NORMAL_COLOR,
-                                                                "Combo Damage: {}\nNormal Damage: {}".format(
-                                                                    combo_damage, tristana_e_spell_damage))
+            with imgui.font(Sdk.Fonts.ruda.get(16)):
+                if combo_damage > target_data.health:
+                    await sdk.sdk.Sdk.Renderer.drawing.draw_text_at(obj_pos, Globals.KILLABLE_COLOR,
+                                                                    "Combo Damage: {}".format(combo_damage))
+                else:
+                    await sdk.sdk.Sdk.Renderer.drawing.draw_text_at(obj_pos, Globals.NORMAL_COLOR,
+                                                                    "Combo Damage: {}\nNormal Damage: {}".format(
+                                                                        combo_damage, tristana_e_spell_damage))
 
 
 async def attack_range():
-    tristana_attack_range = await Sdk.local_player.attack_range()
-    obj_pos = await Sdk.local_player.pos()
-    await Sdk.Renderer.drawing.draw_circle_at(obj_pos, tristana_attack_range + Globals.RADIUS, (255, 0, 0, 255), 3,
+    tristana = await Sdk.local_player.load_object()
+    tristana_attack_range = tristana.attack_range
+    obj_pos = tristana.position
+    await Sdk.Renderer.drawing.draw_circle_at(obj_pos, tristana_attack_range + Globals.RADIUS, (1, 0, 0, 0.3), 3,
                                               100)
 
 

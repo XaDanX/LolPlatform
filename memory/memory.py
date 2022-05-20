@@ -1,10 +1,10 @@
 import functools
 import struct
 from typing import Any
-
 import pymem
 import asyncio
 
+import arrow
 
 type_format_dict = {
     "char": "<c",
@@ -36,8 +36,12 @@ class Memory:
         return await loop.run_in_executor(None, function)
 
     async def read_bytes(self, address: int, size: int) -> bytes:
-
-        return await self.run_in_executor(self.process.read_bytes, address, size)
+        import sdk.sdk as sdk
+        sdk.Sdk.BenchmarkData.memory_calls += 1
+        start = arrow.utcnow()
+        output = await self.run_in_executor(self.process.read_bytes, address, size)
+        sdk.Sdk.BenchmarkData.memory_time = (arrow.utcnow() - start).total_seconds() * 1000
+        return output
 
     async def write_bytes(self, address: int, value: bytes):
 

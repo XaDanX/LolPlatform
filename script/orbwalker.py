@@ -16,6 +16,10 @@ __description__ = "OrbWalker script."
 from utils.logger import Logger
 
 
+async def script_menu():
+    pass
+
+
 async def script_init():
     ScriptData.game_time = await Sdk.game.time()
     ScriptData.can_move_time = ScriptData.game_time

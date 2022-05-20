@@ -5,6 +5,7 @@ from memory.memory import Memory
 from sdk import offsets
 import sdk.object as obj
 import enum
+from sdk.utils import float_from_buffer, int_from_buffer
 
 from sdk.utils import benchmark, multiple_square_matrix
 from utils.logger import Logger
@@ -55,7 +56,6 @@ class FastRender:
 
 
 class Game:
-    fast_render = FastRender()
 
     @classmethod
     async def time(cls):
@@ -67,31 +67,22 @@ class Game:
         if under_mouse_ptr != 0:
             obj_under_mouse = await Memory().read(under_mouse_ptr + 0x0C, "int")
             if obj_under_mouse != 0:
-                return obj.Object(obj_under_mouse)
+                return obj_under_mouse
             else:
                 return None
         else:
             return None
 
-
     @classmethod
     async def render(cls):
         render_ptr = await Memory().read(Memory.process.base_address + offsets.renderer, "int")
-        width = await Memory().read(render_ptr + offsets.renderer_width, "int")
-        height = await Memory().read(render_ptr + offsets.renderer_height, "int")
+        render = await Memory().read_bytes(render_ptr, offsets.RENDER_SIZE)
 
-        view_matrix = await Memory().read_bytes(render_ptr + offsets.view_matrix, 64)
-        view_matrix_unp = struct.unpack("16f", view_matrix)
-        proj_view_matrix = await Memory().read_bytes(render_ptr + offsets.proj_matrix, 64)
-        proj_view_matrix_unp = struct.unpack("16f", proj_view_matrix)
+        width = int_from_buffer(render, offsets.renderer_width)
+        height = int_from_buffer(render, offsets.renderer_height)
 
-        view_proj_matrix = multiple_square_matrix(view_matrix_unp, proj_view_matrix_unp, 4)
+        view_matrix = struct.unpack("16f", await Memory().read_bytes(render_ptr + offsets.view_matrix, 64))
+        proj_matrix = struct.unpack("16f", await Memory().read_bytes(render_ptr + offsets.proj_matrix, 64))
+        view_proj_matrix = multiple_square_matrix(view_matrix, proj_matrix, 4)
 
-        return Render(width, height, view_matrix_unp, proj_view_matrix_unp, view_proj_matrix)
-
-
-    """
-    @classmethod
-    def render(cls):
-        return Game.fast_render.get_render()
-    """
+        return Render(width, height, view_matrix, proj_matrix, view_proj_matrix)

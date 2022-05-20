@@ -31,7 +31,10 @@ class Sdk:
         total_time = 0.
         render_time = 0.
         script_update_time = 0.
-        object_manager_time = 0.
+        object_manager_update_time = 0.
+        object_manager_serialization_time = 0.
+        memory_time = 0.
+        memory_calls = 0
 
     class Info:
         width = 0
@@ -39,3 +42,4 @@ class Sdk:
 
     class Internal:
         script_manager: None
+        loop_update_rate = 1

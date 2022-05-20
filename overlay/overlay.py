@@ -38,6 +38,7 @@ def setup_style():
     style.frame_rounding = 0
     style.frame_padding = (8, 6)
     style.window_title_align = (0.5, 0.5)
+    style.alpha = 0.95
     # style.window_min_size = (400, 500)
 
     style.colors[imgui.COLOR_TITLE_BACKGROUND] = rgb_to_float([227, 0, 0, 255])
@@ -176,7 +177,13 @@ class Overlay:
                 imgui.text(f"Total: {sdk.Sdk.BenchmarkData.total_time:.6f}ms")
                 imgui.text(f"Render: {sdk.Sdk.BenchmarkData.render_time:.6f}ms")
                 imgui.text(f"Script: {sdk.Sdk.BenchmarkData.script_update_time:.6f}ms")
-                imgui.text(f"Object: {sdk.Sdk.BenchmarkData.object_manager_time:.6f}ms")
+                imgui.text(f"Object: {sdk.Sdk.BenchmarkData.object_manager_update_time:.6f}ms")
+                imgui.text(f"Serial: {sdk.Sdk.BenchmarkData.object_manager_serialization_time:.6f}ms")
+                imgui.text(f"Memory: {sdk.Sdk.BenchmarkData.memory_time:.6f}ms")
+                imgui.text(f"MemCalls: {sdk.Sdk.BenchmarkData.memory_calls}")
+                changed, sdk.Sdk.Internal.loop_update_rate = imgui.slider_int(
+                    "ObjUpdateRate", sdk.Sdk.Internal.loop_update_rate, 1, 400
+                )
                 imgui.end()
 
                 imgui.begin("Script Manager")
@@ -202,7 +209,7 @@ class Overlay:
         swap_buffers(self.window)
         glClear(GL_COLOR_BUFFER_BIT)
         sdk.Sdk.BenchmarkData.render_time = (arrow.utcnow() - start).total_seconds() * 1000
-        await asyncio.sleep(0.0001)
+        await asyncio.sleep(0)
 
     def close(self):
         destroy_window(self.window)
